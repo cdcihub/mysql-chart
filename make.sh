@@ -1,19 +1,23 @@
-
+ENVIRONMENT=staging-1-3
 
 function create-secrets(){
-    MYSQL_ROOT_PASSWORD=$(kubectl get secret --namespace staging-1-3 staging-1-3-mysql -o jsonpath="{.data.mysql-root-password}" | base64 --decode; echo)
+    MYSQL_ROOT_PASSWORD=$(kubectl get secret --namespace $ENVIRONMENT $ENVIRONMENT-mysql -o jsonpath="{.data.mysql-root-password}" | base64 --decode; echo)
 
     mkdir -pv private
 
+    rm -fv ./private/url.txt
+
     umask 0277
 
-    (kubectl get secret --namespace staging-1-3 staging-1-3-mysql -o jsonpath="{.data.mysql-root-password}" | base64 --decode; echo) > private/password.txt
-    kubectl --namespace staging-1-3 create secret generic db-user-pass  --from-file=./private/password.txt
+
+    echo -n "mysql+pool://dqueue:$(cat private/dqueue-password.txt)@mysql/dqueue?max_connections=42&stale_timeout=8001.2" > ./private/url.txt
+
+    kubectl delete secret -n ${ENVIRONMENT} dqueue-database-url
+    kubectl --namespace $ENVIRONMENT create secret generic dqueue-database-url  --from-file=./private/url.txt
 }
 
-
 function install() {
-    helm install --namespace staging-1-3 --name staging-1-3-mysql stable/mysql --set persistence.storageClass=cdcicn-nfs
+    helm3 install --namespace $ENVIRONMENT mysql stable/mysql --set persistence.storageClass=cdcicn-nfs
 }
 
 $@
