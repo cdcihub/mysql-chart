@@ -17,12 +17,11 @@ function create-secrets(){
 }
 
 function install() {
-    helm3 install --namespace $ENVIRONMENT mysql stable/mysql --set persistence.storageClass=cdcicn-nfs
+    helm install --namespace $ENVIRONMENT mysql stable/mysql --set persistence.storageClass=nfs-client
+   # helm install --namespace $ENVIRONMENT oda-mysql stable/mysql --set persistence.storageClass=cdcicn-nfs
 }
 
 function create-user(){
-    set -x
-
     MYSQL_ROOT_PASSWORD=$(kubectl get secret --namespace $ENVIRONMENT mysql -o jsonpath="{.data.mysql-root-password}" | base64 --decode; echo)
 
     MYSQL_HOST=127.0.0.1
@@ -32,7 +31,26 @@ function create-user(){
     kubectl port-forward svc/mysql ${MYSQL_PORT}:3306 -n staging-1-3 &
     proxy=$!
 
+    sleep 1
+
     mysql --protocol=tcp -h ${MYSQL_HOST} -P${MYSQL_PORT} -u root -p${MYSQL_ROOT_PASSWORD} < create-user.sql
+
+    kill -9 $proxy
+}
+
+function dqueue-longtext(){
+    MYSQL_ROOT_PASSWORD=$(kubectl get secret --namespace $ENVIRONMENT mysql -o jsonpath="{.data.mysql-root-password}" | base64 --decode; echo)
+
+    MYSQL_HOST=127.0.0.1
+    MYSQL_PORT=3307
+
+    # Execute the following command to route the connection:
+    kubectl port-forward svc/mysql ${MYSQL_PORT}:3306 -n staging-1-3 &
+    proxy=$!
+
+    sleep 1
+
+    mysql --protocol=tcp -h ${MYSQL_HOST} -P${MYSQL_PORT} -u root -p${MYSQL_ROOT_PASSWORD} < dqueue-longtext.sql
 
     kill -9 $proxy
 }
